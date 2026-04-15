@@ -1,53 +1,76 @@
-from fastapi import FastAPI, UploadFile, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 import io
 
 app = FastAPI()
 
-# CORS
+# ✅ CORS (для фронта)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 MAX_SIZE = 5 * 1024 * 1024  # 5MB
 
+
 @app.post("/upload")
 async def upload(
-    file: UploadFile,
-    format: str = Form(...),
+    file: UploadFile = File(...),
+    format: str = Form("jpeg"),
     width: int = Form(None),
     height: int = Form(None),
-    keepRatio: str = Form("true")
+    keepRatio: bool = Form(True),
 ):
     contents = await file.read()
 
+    # 🔒 size limit
     if len(contents) > MAX_SIZE:
-        raise HTTPException(400, "Файл слишком большой")
+        raise HTTPException(status_code=400, detail="Файл слишком большой (max 5MB)")
 
+    # 🖼 image open
     try:
         img = Image.open(io.BytesIO(contents))
-    except:
-        raise HTTPException(400, "Невалидное изображение")
+        img.load()
+    except UnidentifiedImageError:
+        raise HTTPException(status_code=400, detail="Невалидное изображение")
 
+    # 🎯 format validation
+    format = format.lower()
     if format not in ["jpeg", "png", "webp"]:
-        raise HTTPException(400, "Неверный формат")
+        raise HTTPException(status_code=400, detail="Неверный формат")
 
-    img = img.convert("RGB")
+    # 🧠 convert mode (важно для jpeg)
+    if format == "jpeg":
+        img = img.convert("RGB")
 
-    # resize
+    # 📏 resize logic
     if width or height:
-        if keepRatio == "true":
-            img.thumbnail((width or img.width, height or img.height))
-        else:
-            img = img.resize((width or img.width, height or img.height))
+        w = width or img.width
+        h = height or img.height
 
+        if keepRatio:
+            img.thumbnail((w, h))
+        else:
+            img = img.resize((w, h))
+
+    # 💾 output buffer
     buf = io.BytesIO()
-    img.save(buf, format.upper())
+
+    save_format = "JPEG" if format == "jpeg" else format.upper()
+
+    img.save(buf, format=save_format)
     buf.seek(0)
 
-    return StreamingResponse(buf, media_type="image/" + format)
+    # 📤 response
+    return StreamingResponse(
+        buf,
+        media_type=f"image/{format}",
+        headers={
+            "Content-Disposition": f"attachment; filename=converted.{format}"
+        }
+    )
