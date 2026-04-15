@@ -1,0 +1,6 @@
+fastapi==0.135.3
+pillow==12.2.0
+uvicorn[standard]
+python-multipart
+
+
