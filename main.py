@@ -5,7 +5,7 @@ import io
 
 app = FastAPI(root_path="/api")
 
-MAX_SIZE = 4 * 2048 * 2048
+MAX_SIZE = 5 * 1024 * 1024
 
 @app.post("/upload")
 async def upload(
