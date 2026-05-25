@@ -5,7 +5,7 @@ import io
 
 app = FastAPI(root_path="/api")
 
-MAX_SIZE = 5 * 1024 * 1024  # 5MB
+MAX_SIZE = 4 * 2048 * 2048
 
 @app.post("/upload")
 async def upload(
@@ -19,7 +19,7 @@ async def upload(
 
     # 🔒 size limit
     if len(contents) > MAX_SIZE:
-        raise HTTPException(status_code=400, detail="Файл слишком большой (max 5MB)")
+        raise HTTPException(status_code=400, detail="Файл слишком большой")
 
     # 🖼 image open
     try:
